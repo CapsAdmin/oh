@@ -147,8 +147,7 @@ function META:FollowsContract(contract)
 		if not res and self:GetMetaTable() then
 			res, err = self:GetMetaTable():FindKeyVal(keyval.key)
 		end
-
-		if not types.Nil():IsSubsetOf(keyval.val) then
+		if not keyval.val:CanBeNil() then
 			if not res then return res, err end
 			local ok, err = res.val:IsSubsetOf(keyval.val)
 			if not ok then return ok, err end
@@ -501,6 +500,15 @@ function META:Copy(map)
 	copy.mutable = self.mutable
 	copy.literal = self.literal
 	copy.mutations = self.mutations
+
+	if self.Self then
+		copy:SetSelf(self.Self:Copy())
+	end
+
+	if self.MetaTable then
+		copy:SetMetaTable(self.MetaTable)
+	end
+
 	return copy
 end
 
@@ -570,7 +578,7 @@ function META:IsTruthy()
 	return true
 end
 
-local function unpack_keyval(keyval, tbl)
+local function unpack_keyval(keyval)
 	local key, val = keyval.key, keyval.val
 	return key, val
 end
@@ -588,7 +596,10 @@ function META.Extend(A, B, dont_copy_self)
 
 	for _, keyval in ipairs(B:GetData()) do
 		if not A:Get(keyval.key) then
-			A:Set(unpack_keyval(keyval, B))
+			local ok, reason = A:Set(unpack_keyval(keyval))
+			if not ok then
+				return ok, reason
+			end
 		end
 	end
 
@@ -599,11 +610,11 @@ function META.Union(A, B)
 	local copy = types.Table({})
 
 	for _, keyval in ipairs(A:GetData()) do
-		copy:Set(unpack_keyval(keyval, A, copy))
+		copy:Set(unpack_keyval(keyval))
 	end
 
 	for _, keyval in ipairs(B:GetData()) do
-		copy:Set(unpack_keyval(keyval, B, copy))
+		copy:Set(unpack_keyval(keyval))
 	end
 
 	return copy
