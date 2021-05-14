@@ -7,8 +7,26 @@ require("nattlua.types.base")(META)
 function META:SetSelf(tbl)
 	tbl:SetMetaTable(self)
 	tbl.mutable = true
+	tbl:SetContractSelf()
 	self.Self = tbl
 end
+
+function META:SetContractSelf()
+	self:SetContract(self)
+
+	for _, keyval in ipairs(self:GetData()) do
+		if keyval.key.Type == "table" and not keyval.key:GetContract() then
+			keyval.key:SetContractSelf()
+		end
+
+		if keyval.val.Type == "table" and not keyval.val:GetContract() then
+			keyval.val:SetContractSelf()
+		end
+	end
+
+	return true
+end
+
 
 function META:GetSelf()
 	return self.Self
@@ -596,7 +614,7 @@ function META.Extend(A, B, dont_copy_self)
 
 	for _, keyval in ipairs(B:GetData()) do
 		if not A:Get(keyval.key) then
-			local ok, reason = A:Set(unpack_keyval(keyval))
+			local ok, reason = A:SetExplicit(unpack_keyval(keyval))
 			if not ok then
 				return ok, reason
 			end
